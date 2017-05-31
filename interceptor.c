@@ -252,8 +252,9 @@ void (*orig_exit_group)(int);
  */
 void my_exit_group(int status)
 {
+	orig_exit_group = sys_call_table[__NR_exit_group];
 	del_pid(current->pid);
-	exit_group(status);
+	orig_exit_group(status);
 
 }
 //----------------------------------------------------------------
