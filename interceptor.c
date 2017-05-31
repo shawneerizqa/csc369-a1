@@ -255,7 +255,6 @@ void my_exit_group(int status)
 	orig_exit_group = sys_call_table[__NR_exit_group];
 	del_pid(current->pid);
 	orig_exit_group(status);
-
 }
 //----------------------------------------------------------------
 
@@ -279,11 +278,30 @@ void my_exit_group(int status)
  */
 asmlinkage long interceptor(struct pt_regs reg) {
 
+	// check if pid is valid
+	if (pid_task(find_vpid(pid), PIDTYPE_PID) == NULL) {
+		return -EINVAL
+	}
 
+	// case 1: all pids are monitored, so log message for current pid
+	if (table[reg.ax].monitored == 2) {
+		log_message(current->pid, reg.ax, reg.bx, reg.cx, reg.dx, reg.si, reg.di, reg.bp);
+	}
 
+	/* case 2: some pids are monitored; iterate through my_list and check if
+	current->pid is monitored */
+	if (table[reg.ax].monitored == 1) {
+		if (check_pid_monitored(reg.ax, current->pid) == 1) {
+			log_message(current->pid, reg.ax, reg.bx, reg.cx, reg.dx, reg.si, reg.di, reg.bp);
+		}
+	}
 
+	// case 3: syscall is not monitored; do nothing
 
-	return 0; // Just a placeholder, so it compiles with no warnings!
+	// call the original system call
+	return table[reg.ax].f(reg);
+
+	//return 0; // Just a placeholder, so it compiles with no warnings!
 }
 
 /**
