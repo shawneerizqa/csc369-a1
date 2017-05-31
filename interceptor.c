@@ -5,6 +5,7 @@
 #include <asm/ptrace.h>
 #include <linux/sched.h>
 #include <linux/cred.h>
+#include <linux/unistd.h>
 #include <asm/unistd.h>
 #include <linux/spinlock.h>
 #include <linux/semaphore.h>
@@ -241,7 +242,6 @@ static int check_pid_monitored(int sysc, pid_t pid) {
  * when our kernel module exits.
  */
 void (*orig_exit_group)(int);
-orig_exit_group = sys_call_table[__NR_exit_group];
 
 /**
  * Our custom exit_group system call.
@@ -252,13 +252,8 @@ orig_exit_group = sys_call_table[__NR_exit_group];
  */
 void my_exit_group(int status)
 {
-	// check if PID belongs to a valid process
-	if (pid_task(find_vpid(current->pid), PIDTYPE_PID) != NULL) {
-		del_pid(current->pid);
-		return 0;
-	}
-
-	return -EINVAL;
+	del_pid(current->pid);
+	exit_group(status);
 
 }
 //----------------------------------------------------------------
