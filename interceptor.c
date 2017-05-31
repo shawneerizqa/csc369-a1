@@ -279,8 +279,8 @@ void my_exit_group(int status)
 asmlinkage long interceptor(struct pt_regs reg) {
 
 	// check if pid is valid
-	if (pid_task(find_vpid(pid), PIDTYPE_PID) == NULL) {
-		return -EINVAL
+	if (pid_task(find_vpid(current->pid), PIDTYPE_PID) == NULL) {
+		return -EINVAL;
 	}
 
 	// case 1: all pids are monitored, so log message for current pid
