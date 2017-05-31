@@ -241,7 +241,7 @@ static int check_pid_monitored(int sysc, pid_t pid) {
  * when our kernel module exits.
  */
 void (*orig_exit_group)(int);
-orig_exit_group = &sys_call_table[__NR_exit_group];
+orig_exit_group = sys_call_table[__NR_exit_group];
 
 /**
  * Our custom exit_group system call.
