@@ -448,7 +448,7 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 			else {
 				// monitored == 2
 
-				if (list_empty(table[syscall].my_list) == 0) {
+				if (list_empty(&(table[syscall].my_list)) == 0) {
 					// blacklist is not empty; clear it
 					spin_lock(&pidlist_lock);
 					destroy_list(syscall);
@@ -465,7 +465,7 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 		else {
 			// pid is not 0
 			// check if pid is valid
-			if ( (pid < 0) | pid_task(find_vpid(pid), PIDTYPE_PID) == NULL) {
+			if ( (pid < 0) | (pid_task(find_vpid(pid), PIDTYPE_PID)) == NULL) {
 				return -EINVAL;
 			}
 
@@ -475,7 +475,7 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 
 				if (check_pid_monitored(syscall, pid) == 0) {
 					// not monitored yet; add it to list of monitored pids
-					add_pid_sysc(pid, sysc);
+					add_pid_sysc(pid, syscall);
 					spin_unlock(&pidlist_lock);
 				}
 
@@ -490,8 +490,7 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 				// monitored == 2
 			}
 		}
-
-
+	}
 
 	return 0;
 }
