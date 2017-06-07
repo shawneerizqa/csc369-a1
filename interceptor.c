@@ -257,7 +257,7 @@ void my_exit_group(int status)
 	spin_lock(&pidlist_lock);
 	del_pid(current->pid);
 	spin_unlock(&pidlist_lock);
-	exit_group(status);
+	orig_exit_group(status);
 }
 //----------------------------------------------------------------
 
@@ -433,38 +433,63 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 			}
 		}
 
-		if (table.monitored == 2) {
+		if (pid == 0) {
 
-			if (pid == 0) {
-				// check if my_list is empty
-				if (table[syscall].my_list != NULL) {
-					// clear the list to reset the blacklist
+			if (table[syscall].monitored < 2) {
+				// start monitoring all pids
+				table[syscall].monitored = 2;
+
+				// clear the list and turn it into a blacklist
+				spin_lock(&pidlist_lock);
+				destroy_list(syscall);
+				spin_unlock(&pidlist_lock);
+			}
+
+			else {
+				// monitored == 2
+
+				if (list_empty(table[syscall].my_list) == 0) {
+					// blacklist is not empty; clear it
 					spin_lock(&pidlist_lock);
 					destroy_list(syscall);
 					spin_unlock(&pidlist_lock);
 				}
+
 				else {
-					/* blacklist is empty, so we've already monitored everything;
-					return EBUSY */
+					// blacklist is empty; all pids are already monitored; EBUSY
 					return -EBUSY;
 				}
 			}
-			else {
-				// pid is not 0
-
-			}
-		}
-
-		else if (table.monitored == 1) {
-
 		}
 
 		else {
-			// monitored == 0
+			// pid is not 0
+			// check if pid is valid
+			if ( (pid < 0) | pid_task(find_vpid(pid), PIDTYPE_PID) == NULL) {
+				return -EINVAL;
+			}
+
+			if (table[syscall].monitored < 2) {
+				// check if pid is already monitored
+				spin_lock(&pidlist_lock);
+
+				if (check_pid_monitored(syscall, pid) == 0) {
+					// not monitored yet; add it to list of monitored pids
+					add_pid_sysc(pid, sysc);
+					spin_unlock(&pidlist_lock);
+				}
+
+				else {
+					// pid already monitored; return EBUSY
+					spin_unlock(&pidlist_lock);
+					return -EBUSY;
+				}
+			}
+
+			else {
+				// monitored == 2
+			}
 		}
-
-	}
-
 
 
 
