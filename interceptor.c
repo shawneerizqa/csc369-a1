@@ -524,7 +524,7 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 			}
 		}
 
-		if (table[syscall].intercept == 0) {
+		if (table[syscall].intercepted == 0) {
 			// syscall is not intercepted yet; return EINVAL
 			return -EINVAL;
 		}
