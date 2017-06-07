@@ -243,7 +243,7 @@ static int check_pid_monitored(int sysc, pid_t pid) {
  * when our kernel module exits.
  */
 void (*orig_exit_group)(int);
-orig_exit_group = sys_call_table[__NR_exit_group];
+//orig_exit_group = sys_call_table[__NR_exit_group];
 
 /**
  * Our custom exit_group system call.
@@ -257,7 +257,7 @@ void my_exit_group(int status)
 	spin_lock(&pidlist_lock);
 	del_pid(current->pid);
 	spin_unlock(&pidlist_lock);
-	orig_exit_group(status);
+	exit_group(status);
 }
 //----------------------------------------------------------------
 
@@ -362,7 +362,7 @@ asmlinkage long interceptor(struct pt_regs reg) {
 asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 
 	// check if syscall is valid
-	if (syscall < 0 | syscall > NR_syscalls | syscall == MY_CUSTOM_SYSCALL) {
+	if ((syscall < 0) | (syscall > NR_syscalls) | (syscall == MY_CUSTOM_SYSCALL)) {
 		return -EINVAL;
 	}
 
@@ -428,12 +428,12 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 
 		// check if this is root
 		if (current_uid() != 0) {
-			if (pid == 0 | check_pid_from_list(current->pid, pid) != 0) {
+			if ((pid == 0) | (check_pid_from_list(current->pid, pid) != 0)) {
 				return -EPERM;
 			}
 		}
 
-		if (monitored == 2) {
+		if (table.monitored == 2) {
 
 			if (pid == 0) {
 				// check if my_list is empty
@@ -455,7 +455,7 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 			}
 		}
 
-		else if (monitored == 1) {
+		else if (table.monitored == 1) {
 
 		}
 
