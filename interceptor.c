@@ -204,7 +204,8 @@ static void destroy_list(int sysc) {
 static int check_pid_from_list(pid_t pid1, pid_t pid2) {
 
 	struct task_struct *p1 = pid_task(find_vpid(pid1), PIDTYPE_PID);
-	struct task_struct *p2 = pid_task(find_vpid(pid2), PIDTYPE_PID);
+	struct
+	task_struct *p2 = pid_task(find_vpid(pid2), PIDTYPE_PID);
 	if(p1->real_cred->uid != p2->real_cred->uid)
 		return -EPERM;
 	return 0;
@@ -242,6 +243,7 @@ static int check_pid_monitored(int sysc, pid_t pid) {
  * when our kernel module exits.
  */
 void (*orig_exit_group)(int);
+orig_exit_group = sys_call_table[__NR_exit_group];
 
 /**
  * Our custom exit_group system call.
@@ -252,12 +254,12 @@ void (*orig_exit_group)(int);
  */
 void my_exit_group(int status)
 {
-	orig_exit_group = sys_call_table[__NR_exit_group];
+	spin_lock(&pidlist_lock);
 	del_pid(current->pid);
+	spin_unlock(&pidlist_lock);
 	orig_exit_group(status);
 }
 //----------------------------------------------------------------
-
 
 
 /**
@@ -278,25 +280,29 @@ void my_exit_group(int status)
  */
 asmlinkage long interceptor(struct pt_regs reg) {
 
-	// check if pid is valid
-	if (pid_task(find_vpid(current->pid), PIDTYPE_PID) == NULL) {
-		return -EINVAL;
-	}
+	// check if this syscall is intercepted
+	if (table[reg.ax].intercepted == 1) {
 
-	// case 1: all pids are monitored, so log message for current pid
-	if (table[reg.ax].monitored == 2) {
-		log_message(current->pid, reg.ax, reg.bx, reg.cx, reg.dx, reg.si, reg.di, reg.bp);
-	}
-
-	/* case 2: some pids are monitored; iterate through my_list and check if
-	current->pid is monitored */
-	if (table[reg.ax].monitored == 1) {
-		if (check_pid_monitored(reg.ax, current->pid) == 1) {
+		// case 1: all pids are monitored, so log message for current pid
+		if (table[reg.ax].monitored == 2) {
 			log_message(current->pid, reg.ax, reg.bx, reg.cx, reg.dx, reg.si, reg.di, reg.bp);
 		}
+
+		/* case 2: some pids are monitored; iterate through my_list and check if
+		current->pid is monitored */
+		if (table[reg.ax].monitored == 1) {
+
+			if (check_pid_monitored(reg.ax, current->pid) == 1) {
+				// then pid is monitored, so log message
+				log_message(current->pid, reg.ax, reg.bx, reg.cx, reg.dx, reg.si, reg.di, reg.bp);
+			}
+			// else: pid is not monitored, do nothing
+		}
+
+		// else: case 3 - syscall is not monitored; do nothing
 	}
 
-	// case 3: syscall is not monitored; do nothing
+	// else: syscall is not intercepted, do nothing
 
 	// call the original system call
 	return table[reg.ax].f(reg);
@@ -355,7 +361,109 @@ asmlinkage long interceptor(struct pt_regs reg) {
  */
 asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 
+	// check if syscall is valid
+	if (syscall < 0 | syscall > NR_syscalls | syscall == MY_CUSTOM_SYSCALL) {
+		return -EINVAL;
+	}
 
+	// FIRST COMMAND
+	if (cmd == REQUEST_SYSCALL_INTERCEPT) {
+
+		// check if this is root
+		if (current_uid() != 0) {
+			return -EPERM;
+		}
+
+		// check if syscall is already intercepted
+		if (table[syscall].intercepted == 1) {
+			return -EBUSY;
+		}
+
+		// save original system call in table
+		table[syscall].f = sys_call_table[syscall];
+
+		// change status to intercepted
+		table[syscall].intercepted = 1;
+
+		// alter the syscall table
+		spin_lock(&calltable_lock);
+		set_addr_rw((unsigned long)sys_call_table);
+		sys_call_table[syscall] = &interceptor;
+		set_addr_ro((unsigned long)sys_call_table);
+		spin_unlock(&calltable_lock);
+
+	}
+
+	// SECOND COMMAND
+	if (cmd == REQUEST_SYSCALL_RELEASE) {
+
+		// check if this is root
+		if (current_uid() != 0) {
+			return -EPERM;
+		}
+
+		// check if syscall is already intercepted
+		if (table[syscall].intercepted == 0) {
+			return -EINVAL;
+		}
+
+		// clear the list of pids for this syscall
+		destroy_list(syscall);
+
+		// change status for intercepted and monitored
+		table[syscall].intercepted = 0;
+		table[syscall].monitored = 0;
+
+		// alter the syscall table
+		spin_lock(&calltable_lock);
+		set_addr_rw((unsigned long)sys_call_table);
+		sys_call_table[syscall] = table[syscall].f;
+		set_addr_ro((unsigned long)sys_call_table);
+		spin_unlock(&calltable_lock);
+
+	}
+
+	// THIRD COMMAND
+	if (cmd == REQUEST_START_MONITORING) {
+
+		// check if this is root
+		if (current_uid() != 0) {
+			if (pid == 0 | check_pid_from_list(current->pid, pid) != 0) {
+				return -EPERM;
+			}
+		}
+
+		if (monitored == 2) {
+
+			if (pid == 0) {
+				// check if my_list is empty
+				if (table[syscall].my_list != NULL) {
+					// clear the list to reset the blacklist
+					spin_lock(&pidlist_lock);
+					destroy_list(syscall);
+					spin_unlock(&pidlist_lock);
+				}
+				else {
+					/* blacklist is empty, so we've already monitored everything;
+					return EBUSY */
+					return -EBUSY;
+				}
+			}
+			else {
+				// pid is not 0
+
+			}
+		}
+
+		else if (monitored == 1) {
+
+		}
+
+		else {
+			// monitored == 0
+		}
+
+	}
 
 
 
