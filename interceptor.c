@@ -524,7 +524,7 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 			}
 		}
 
-		if (table[syscall].intercepted == 0) {
+		if (table[syscall].intercepted8 == 0) {
 			// syscall is not intercepted yet; return EINVAL
 			return -EINVAL;
 		}
@@ -632,11 +632,28 @@ long (*orig_custom_syscall)(void);
  */
 static int init_function(void) {
 
+	// save the original system calls
+	orig_custom_syscall = sys_call_table[MY_CUSTOM_SYSCALL];
+	orig_exit_group = sys_call_table[__NR_exit_group];
 
+	// hijack MY_CUSTOM_SYSCALL and orig_exit_group
+	spin_lock(&calltable_lock);
+	set_addr_rw((unsigned long)sys_call_table);
+	sys_call_table[MY_CUSTOM_SYSCALL] = &my_syscall;
+	sys_call_table[__NR_exit_group] = &my_exit_group;
+	set_addr_ro(unsigned long)sys_call_table);
+	spin_unlock(&calltable_lock);
 
+	// initialize a struct for each system call
+	int i;
+	for (i = 0; i < NR_syscalls; i++) {
+		// initialize a list
+		INIT_LIST_HEAD(&(table[i].my_list))
 
-
-
+		table[i].intercepted = 0;
+		table[i].monitored = 0;
+		table[i].listcount = 0;
+	}
 
 	return 0;
 }
@@ -653,12 +670,21 @@ static int init_function(void) {
  */
 static void exit_function(void)
 {
+	// clear the list of monitored pids for all syscalls
+	spin_lock(&pidlist_lock);
+	int s;
+	for (s = 0; s < NR_syscalls; s++) {
+		destroy_list(s);
+	}
+	spin_unlock(&pidlist_lock);
 
-
-
-
-
-
+	// restore the original syscalls
+	spin_lock(&calltable_lock);
+	set_addr_rw((unsigned long)sys_call_table);
+	sys_call_table[MY_CUSTOM_SYSCALL] = orig_custom_syscall;
+	sys_call_table[__NR_exit_group] = orig_exit_group;
+	spin_unlock(&calltable_lock);
+	set_addr_ro((unsigned long)sys_call_table);
 }
 
 module_init(init_function);
