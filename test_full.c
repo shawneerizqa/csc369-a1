@@ -21,13 +21,13 @@ int vsyscall_arg(int sno, int n, ...) {
 	va_list va;
 	long args[6];
 	int i, ret;
-	
+
 	va_start(va, n);
 	for(i = 0; i < n; i++) {
 		args[i] = va_arg(va, long);
 	}
 	va_end(va);
-	
+
 	ret = syscall(sno, args[0], args[1], args[2]);
 	if(ret) ret = -errno;
 	return ret;
@@ -54,16 +54,16 @@ void clear_log() {
 	system("dmesg -c &> /dev/null");
 }
 
-/** 
- * Check if the log contains what is expected - if log_message was done properly 
+/**
+ * Check if the log contains what is expected - if log_message was done properly
  */
 int find_log(long pid, long sno, long *args, long ret) {
 	char message[1024], command[1024], output[1024];
 	FILE *fp;
 
-	sprintf(message, "[%lx]%lx(%lx,%lx,%lx,%lx,%lx,%lx)", 
+	sprintf(message, "[%lx]%lx(%lx,%lx,%lx,%lx,%lx,%lx)",
 	               (long)getpid(), sno, args[0], args[1], args[2], args[3], args[4], args[5]);
-	sprintf(command, "dmesg | grep \"\\[%lx\\]%lx(%lx,%lx,%lx,%lx,%lx,%lx)\" 2>&1", 
+	sprintf(command, "dmesg | grep \"\\[%lx\\]%lx(%lx,%lx,%lx,%lx,%lx,%lx)\" 2>&1",
 	               (long)getpid(), sno, args[0], args[1], args[2], args[3], args[4], args[5]);
 
 	fp = popen(command, "r");
@@ -80,13 +80,13 @@ int find_log(long pid, long sno, long *args, long ret) {
 	return -1;
 }
 
-/** 
+/**
  * Check if a syscall gets logged properly when it's been already intercepted
  */
 int do_monitor(int sysno) {
 	int sno, ret, i;
 	long args[6];
-	
+
 	sno = sysno;
 	for(i = 0; i < 6; i++) {
 		args[i] = rand();
@@ -95,7 +95,7 @@ int do_monitor(int sysno) {
 	ret = syscall(sno, args[0], args[1], args[2], args[3], args[4], args[5]);
 	if(ret) ret = -errno;
 
-	//printf("[%x]%lx(%lx,%lx,%lx,%lx,%lx,%lx)\n", getpid(), (long)sysno, 
+	//printf("[%x]%lx(%lx,%lx,%lx,%lx,%lx,%lx)\n", getpid(), (long)sysno,
 	//	args[0], args[1], args[2], args[3], args[4], args[5]);
 
 	test("%d nonroot monitor", sysno, find_log(getpid(), (long)sno, args, (long)ret) == 0);
@@ -128,7 +128,7 @@ int do_stop(int syscall, int pid, int status) {
 }
 
 
-/** 
+/**
  * Run the tester as a non-root user, and basically run do_nonroot
  */
 void do_as_guest(const char *str, int args1, int args2) {
@@ -175,6 +175,7 @@ void test_syscall(int syscall) {
 	do_start(syscall, -2, -EINVAL);
 	do_start(syscall, 0, 0);
 	do_stop(syscall, 0, 0);
+	printf("\nTHE ERROR IS HERE\n")
 	do_start(syscall, 1, 0);
 	do_as_guest("./test_full stop %d 1 %d", syscall, -EPERM);
 	do_stop(syscall, 1, 0);
@@ -188,7 +189,7 @@ int main(int argc, char **argv) {
 
 	srand(time(NULL));
 
-	if (argc>1 && strcmp(argv[1], "intercept") == 0) 
+	if (argc>1 && strcmp(argv[1], "intercept") == 0)
 		return do_intercept(atoi(argv[2]), atoi(argv[3]));
 
 	if (argc>1 && strcmp(argv[1], "release") == 0)
@@ -217,11 +218,10 @@ int main(int argc, char **argv) {
 
 	test_syscall(SYS_open);
 	/* The above line of code tests SYS_open.
-	   Feel free to add more tests here for other system calls, 
+	   Feel free to add more tests here for other system calls,
 	   once you get everything to work; check Linux documentation
 	   for other syscall number definitions.  */
 
 	test("rmmod interceptor.ko %s", "", system("rmmod interceptor") == 0);
 	return 0;
 }
-
