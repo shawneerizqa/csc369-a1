@@ -281,11 +281,13 @@ void my_exit_group(int status)
 asmlinkage long interceptor(struct pt_regs reg) {
 
 	// check if this syscall is intercepted
-	if (table[reg.ax].intercepted == 1) {
+	//if (table[reg.ax].intercepted == 1) {
 
 		// case 1: all pids are monitored, so log message for current pid
 		if (table[reg.ax].monitored == 2) {
-			log_message(current->pid, reg.ax, reg.bx, reg.cx, reg.dx, reg.si, reg.di, reg.bp);
+			if (check_pid_monitored(reg.ax, current->pid) == 0) {
+				log_message(current->pid, reg.ax, reg.bx, reg.cx, reg.dx, reg.si, reg.di, reg.bp);
+			}
 		}
 
 		/* case 2: some pids are monitored; iterate through my_list and check if
@@ -300,7 +302,7 @@ asmlinkage long interceptor(struct pt_regs reg) {
 		}
 
 		// else: case 3 - syscall is not monitored; do nothing
-	}
+	//}
 
 	// else: syscall is not intercepted, do nothing
 
