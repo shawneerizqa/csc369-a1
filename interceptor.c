@@ -362,7 +362,7 @@ asmlinkage long interceptor(struct pt_regs reg) {
 asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 
 	// check if syscall is valid
-	if ((syscall < 0) || (syscall > NR_syscalls) | (syscall == MY_CUSTOM_SYSCALL)) {
+	if ((syscall < 0) || (syscall > NR_syscalls) || (syscall == MY_CUSTOM_SYSCALL)) {
 		return -EINVAL;
 	}
 
