@@ -530,7 +530,7 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 				return -EPERM;
 			}
 			if (check_pid_from_list(current->pid, pid) != 0) {
-				printk("PID is not owned by the calling process\n");
+				printk("PID is not owned by the calling process\n");1`
 				return -EPERM;
 			}
 		}
@@ -554,56 +554,66 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 
 			else {
 				// monitored == 0; nothing is monitored; return EINVAL
-				return 0; //-EINVAL;
+				return -EINVAL;
 			}
 		}
 
 		else {
-			// pid is not 0
+			printk("pid is not 0\n");
 			// check if pid is valid
 			if ( (pid < 0) || (pid_task(find_vpid(pid), PIDTYPE_PID) == NULL)) {
+				printk("pid is not valid\n");
 				return -EINVAL;
 			}
 
 			if (table[syscall].monitored == 1) {
+				printk("monitored = 1\n");
 				// check if pid is monitored
 				spin_lock(&pidlist_lock);
 
 				if (check_pid_monitored(syscall, pid) != 0) {
 					// pid is monitored; remove it from list
+					printk("pid is already monitored\n");
 					del_pid_sysc(pid, syscall);
 					spin_unlock(&pidlist_lock);
 				}
 
 				else {
 					// pid not monitored yet; return EINVAL
+					prink("pid is not monitored yet");
 					spin_unlock(&pidlist_lock);
 					return -EINVAL;
 				}
 			}
 
 			else if (table[syscall].monitored == 2) {
+				prink("monitored = 2\n");
 
 				if (list_empty(&(table[syscall].my_list)) == 0) {
+					printk("Blacklist is not empty\n");
 					// blacklist is not empty; check if pid is in it
 					spin_lock(&pidlist_lock);
 					if (check_pid_monitored(syscall, pid) == 0) {
 						// it's not in list of unmonitored pids; add it to blacklist
 						if (add_pid_sysc(pid, syscall) != 0) {
+							prink("Returning ENOMEM...\n");
 							return -ENOMEM;
 						}
 						spin_unlock(&pidlist_lock);
 					}
 					else {
+						printk("pid is in blacklist");
 						// pid is in blacklist; not monitored; return EINVAL
 						return -EINVAL;
 					}
 				}
 
 				else {
+					printk("Blacklist is empty");
 					// blacklist is empty; all pids are monitored; add pid to blacklist
 					spin_lock(&pidlist_lock);
 					if (add_pid_sysc(pid, syscall) != 0) {
+						printk("Returning ENOMEM...\n");
 						return -ENOMEM;
 					}
 					spin_unlock(&pidlist_lock);
@@ -611,12 +621,13 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 			}
 
 			else {
+				printk("monitored = 0");
 				// monitored == 0; nothing is monitored; return EINVAL
 				return -EINVAL;
 			}
 		}
 	}
-
+	printk("Returning 0...\n");
 	return 0;
 }
 
