@@ -524,10 +524,13 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 
 		// check if this is root
 		if (current_uid() != 0) {
+			printk("This is not root\n");
 			if (pid == 0) {
+				printk("PID is 0 and is not under root\n");
 				return -EPERM;
 			}
 			if (check_pid_from_list(current->pid, pid) != 0) {
+				printk("PID is not owned by the calling process\n");
 				return -EPERM;
 			}
 		}
