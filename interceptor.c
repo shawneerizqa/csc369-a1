@@ -430,7 +430,10 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 
 		// check if this is root
 		if (current_uid() != 0) {
-			if ((pid == 0) || (check_pid_from_list(current->pid, pid) != 0)) {
+			if (pid == 0) {
+				return -EPERM;
+			}
+			if (check_pid_from_list(current->pid, pid) != 0) {
 				return -EPERM;
 			}
 		}
