@@ -98,7 +98,7 @@ int do_monitor(int sysno) {
 	//printf("[%x]%lx(%lx,%lx,%lx,%lx,%lx,%lx)\n", getpid(), (long)sysno,
 	//	args[0], args[1], args[2], args[3], args[4], args[5]);
 
-	test("%d nonroot monitor", sysno, find_log(getpid(), (long)sno, args, (long)ret) == 0);
+	test("%d log message", sysno, find_log(getpid(), (long)sno, args, (long)ret) == 0);
 	return 0;
 }
 
@@ -154,14 +154,17 @@ int do_nonroot(int syscall) {
 	do_intercept(syscall, -EPERM);
 	do_release(syscall, -EPERM);
 	do_start(syscall, 0, -EPERM);
+	// new do_monitor
+	do_monitor(syscall);
 	do_stop(syscall, 0, -EPERM);
 	do_start(syscall, 1, -EPERM);
+	// new do_monitor
+	do_monitor(syscall);
 	do_stop(syscall, 1, -EPERM);
 	do_start(syscall, getpid(), 0);
 	do_start(syscall, getpid(), -EBUSY);
 	do_monitor(syscall);
 	do_stop(syscall, getpid(), 0);
-	printf("THIS IS WHERE THE ERROR IS")
 	do_stop(syscall, getpid(), -EINVAL);
 	return 0;
 }
@@ -175,11 +178,14 @@ void test_syscall(int syscall) {
 	do_as_guest("./test_full nonroot %d", syscall, 0);
 	do_start(syscall, -2, -EINVAL);
 	do_start(syscall, 0, 0);
+	// new do_monitor
+	do_monitor(syscall);
 	do_stop(syscall, 0, 0);
 	do_start(syscall, 1, 0);
+	// new do_monitor
+	do_monitor(syscall);
 	do_as_guest("./test_full stop %d 1 %d", syscall, -EPERM);
 	do_stop(syscall, 1, 0);
-	printf("ANOTHER ERROR")
 	do_as_guest("./test_full start %d -1 %d", syscall, 0);
 	do_stop(syscall, last_child, -EINVAL);
 	do_release(syscall, 0);
